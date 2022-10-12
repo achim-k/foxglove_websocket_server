@@ -283,7 +283,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
         if (clientInfo.subscriptions.find(subId) != clientInfo.subscriptions.end()) {
           sendJson(hdl, json{
                           {"op", "status"},
-                          {"level", StatusLevel::ERROR},
+                          {"level", static_cast<uint8_t>(StatusLevel::ERROR)},
                           {"message", "Client subscription id " + std::to_string(subId) +
                                         " was already used; ignoring subscription"},
                         });
@@ -293,7 +293,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
         if (channelIt == _channels.end()) {
           sendJson(hdl, json{
                           {"op", "status"},
-                          {"level", StatusLevel::WARNING},
+                          {"level", static_cast<uint8_t>(StatusLevel::WARNING)},
                           {"message", "Channel " + std::to_string(channelId) +
                                         " is not available; ignoring subscription"},
                         });
@@ -316,7 +316,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
         if (sub == clientInfo.subscriptions.end()) {
           sendJson(hdl, json{
                           {"op", "status"},
-                          {"level", StatusLevel::WARNING},
+                          {"level", static_cast<uint8_t>(StatusLevel::WARNING)},
                           {"message", "Client subscription id " + std::to_string(subId) +
                                         " did not exist; ignoring unsubscription"},
                         });
@@ -344,7 +344,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
                                "Unrecognized client opcode: " + op);
       sendJson(hdl, {
                       {"op", "status"},
-                      {"level", StatusLevel::ERROR},
+                      {"level", static_cast<uint8_t>(StatusLevel::ERROR)},
                       {"message", "Unrecognized opcode " + op},
                     });
     }
