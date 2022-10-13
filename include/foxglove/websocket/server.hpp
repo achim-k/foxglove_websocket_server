@@ -403,7 +403,7 @@ inline void Server::sendMessage(ChannelId chanId, uint64_t timestamp, std::strin
         message[10] = (timestamp >> 40) & 0xff;
         message[11] = (timestamp >> 48) & 0xff;
         message[12] = (timestamp >> 56) & 0xff;
-        std::copy(data.begin(), data.end(), message.data() + 1 + 4 + 8);
+        std::memcpy(message.data() + 1 + 4 + 8, data.data(), data.size());
       }
       message[1] = (subId >> 0) & 0xff;
       message[2] = (subId >> 8) & 0xff;
