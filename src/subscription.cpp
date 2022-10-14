@@ -1,11 +1,11 @@
-#include "foxglove_websocket_ros/subscription.h"
+#include "foxglove_websocket_server/subscription.h"
 
 #include <ros/message_event.h>
 
 #include <cassert>
 #include <ros_type_introspection/utils/shape_shifter.hpp>
 
-namespace foxglove_websocket_ros {
+namespace foxglove_websocket_server {
 
 void Subscription::addClient() {
   std::lock_guard<std::recursive_mutex> guard(*mutex_);
@@ -52,4 +52,4 @@ void Subscription::unsubscribe() {
   ROS_INFO_STREAM("Unsubscribed from topic " << topic_);
 }
 
-}  // namespace foxglove_websocket_ros
+}  // namespace foxglove_websocket_server

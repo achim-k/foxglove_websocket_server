@@ -7,9 +7,9 @@
 #include <thread>
 
 #include "foxglove/websocket/server.hpp"
-#include "foxglove_websocket_ros/subscription.h"
+#include "foxglove_websocket_server/subscription.h"
 
-using foxglove_websocket_ros::Subscription;
+using foxglove_websocket_server::Subscription;
 
 constexpr char CHANNEL_ENCODING[] = "ros1";
 

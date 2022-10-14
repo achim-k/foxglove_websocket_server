@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(foxglove_websocket_ros)
+project(foxglove_websocket_server)
 
 add_compile_options(-std=c++17)
 

@@ -5,7 +5,7 @@
 
   <arg name="topics_glob" default="[*]" />
 
-  <node name="foxglove_server" pkg="foxglove_websocket_ros" type="server">
+  <node name="foxglove_server" pkg="foxglove_websocket_server" type="server">
     <param name="port"                    value="$(arg port)"/>
     <param name="num_threads"             value="$(arg num_threads)"/>
     <param name="topic_discovery_period"  value="$(arg topic_discovery_period)"/>

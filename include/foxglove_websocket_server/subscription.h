@@ -9,7 +9,7 @@
 #include <string>
 #include <string_view>
 
-namespace foxglove_websocket_ros {
+namespace foxglove_websocket_server {
 
 class Subscription {
  public:
@@ -38,4 +38,4 @@ class Subscription {
   std::function<void(uint64_t, std::string_view)> msg_callback_;
 };
 
-}  // namespace foxglove_websocket_ros
+}  // namespace foxglove_websocket_server
