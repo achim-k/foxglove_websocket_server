@@ -9,6 +9,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <shared_mutex>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
@@ -121,6 +122,7 @@ private:
   std::unordered_map<ChannelId, Channel> _channels;
   std::function<void(ChannelId)> _subscribeHandler;
   std::function<void(ChannelId)> _unsubscribeHandler;
+  std::shared_mutex _clients_channel_mutex;
 
   bool validateConnection(ConnHandle hdl);
   void handleConnectionOpened(ConnHandle hdl);
@@ -170,6 +172,7 @@ inline bool Server::validateConnection(ConnHandle hdl) {
 }
 
 inline void Server::handleConnectionOpened(ConnHandle hdl) {
+  std::unique_lock<std::shared_mutex> lock(_clients_channel_mutex);
   auto con = _server.get_con_from_hdl(hdl);
   _server.get_alog().write(
     websocketpp::log::alevel::app,
@@ -197,6 +200,7 @@ inline void Server::handleConnectionOpened(ConnHandle hdl) {
 }
 
 inline void Server::handleConnectionClosed(ConnHandle hdl) {
+  std::unique_lock<std::shared_mutex> lock(_clients_channel_mutex);
   const auto& client = _clients.find(hdl);
   if (client == _clients.end()) {
     _server.get_elog().write(websocketpp::log::elevel::rerror,
@@ -225,6 +229,7 @@ inline void Server::setUnsubscribeHandler(std::function<void(ChannelId)> handler
 }
 
 inline void Server::stop() {
+  std::unique_lock<std::shared_mutex> lock(_clients_channel_mutex);
   std::error_code ec;
   _server.stop_listening(ec);
 
@@ -270,6 +275,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
   const std::string remoteEndpoint = con->get_remote_endpoint();
 
   try {
+    std::unique_lock<std::shared_mutex> lock(_clients_channel_mutex);
     auto& clientInfo = _clients.at(hdl);
 
     const auto& payloadStr = msg->get_payload();
@@ -356,6 +362,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
 }
 
 inline ChannelId Server::addChannel(ChannelWithoutId channel) {
+  std::unique_lock<std::shared_mutex> lock(_clients_channel_mutex);
   const auto newId = ++_nextChannelId;
   Channel newChannel{newId, std::move(channel)};
 
@@ -371,6 +378,7 @@ inline ChannelId Server::addChannel(ChannelWithoutId channel) {
 }
 
 inline void Server::removeChannel(ChannelId chanId) {
+  std::unique_lock<std::shared_mutex> lock(_clients_channel_mutex);
   _channels.erase(chanId);
   for (auto& [hdl, clientInfo] : _clients) {
     if (const auto it = clientInfo.subscriptionsByChannel.find(chanId);
@@ -385,6 +393,7 @@ inline void Server::removeChannel(ChannelId chanId) {
 }
 
 inline void Server::sendMessage(ChannelId chanId, uint64_t timestamp, std::string_view data) {
+  std::shared_lock<std::shared_mutex> lock(_clients_channel_mutex);
   std::vector<uint8_t> message;
   for (const auto& [hdl, client] : _clients) {
     const auto& subs = client.subscriptionsByChannel.find(chanId);
