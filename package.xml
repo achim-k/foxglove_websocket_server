@@ -2,7 +2,7 @@
 <package format="2">
   <name>foxglove_websocket_ros</name>
   <version>0.0.0</version>
-  <description>Websocket server exposing ROS subscribers via the foxglove websocket protocol</description>
+  <description>Websocket server exposing ROS topics via the foxglove websocket protocol</description>
   <author email="achim.krauch@gmail.com">Hans-Joachim Krauch</author>
   <maintainer email="achim.krauch@gmail.com">Hans-Joachim Krauch</maintainer>
   <license>MIT</license>
@@ -10,7 +10,10 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <depend>roscpp</depend>
-  <depend>topic_tools</depend>
   <depend>libwebsocketpp-dev</depend>
   <depend>nlohmann-json-dev</depend>
+  <!-- Has been deprecated in favor of 'ros_msg_parser', but that package hasn't been released yet. -->
+  <depend>ros_type_introspection</depend>
+  <depend>rosapi</depend>
+  <depend>std_srvs</depend>
 </package>
