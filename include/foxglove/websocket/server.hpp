@@ -305,9 +305,6 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
                         });
           continue;
         }
-        _server.get_alog().write(
-          websocketpp::log::alevel::app,
-          "Client " + remoteEndpoint + " subscribed to channel " + std::to_string(channelId));
         bool firstSubscription = !anySubscribed(channelId);
         clientInfo.subscriptions.emplace(subId, channelId);
         clientInfo.subscriptionsByChannel[channelId].insert(subId);
@@ -329,9 +326,6 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
           continue;
         }
         ChannelId chanId = sub->second;
-        _server.get_alog().write(
-          websocketpp::log::alevel::app,
-          "Client " + clientInfo.name + " unsubscribed from channel " + std::to_string(chanId));
         clientInfo.subscriptions.erase(sub);
         if (const auto& subs = clientInfo.subscriptionsByChannel.find(chanId);
             subs != clientInfo.subscriptionsByChannel.end()) {
