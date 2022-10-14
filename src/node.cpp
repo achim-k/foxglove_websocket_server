@@ -22,7 +22,6 @@ class FosgloveServerRos {
             _nh.serviceClient<rosapi::TopicsAndRawTypes>("rosapi/topics_and_raw_types")) {
     _server->setSubscribeHandler([&](foxglove::websocket::ChannelId channel_id) {
       try {
-        std::lock_guard<std::mutex> lock(_mutex);
         _subscriptions.at(channel_id).addClient();
       } catch (const std::out_of_range&) {
         ROS_ERROR_STREAM("Unknown channel: " << channel_id);
@@ -31,7 +30,6 @@ class FosgloveServerRos {
 
     _server->setUnsubscribeHandler([&](foxglove::websocket::ChannelId channel_id) {
       try {
-        std::lock_guard<std::mutex> lock(_mutex);
         _subscriptions.at(channel_id).removeClient();
       } catch (const std::out_of_range&) {
         ROS_ERROR_STREAM("Unknown channel: " << channel_id);
@@ -46,7 +44,6 @@ class FosgloveServerRos {
   void discoverTopics() {
     rosapi::TopicsAndRawTypes srv;
     if (_srv_get_topics.call(srv)) {
-      std::lock_guard<std::mutex> lock(_mutex);
       for (std::size_t i = 0; i < srv.response.topics.size(); i++) {
         const std::string& topic = srv.response.topics[i];
         const std::string& type = srv.response.types[i];
@@ -80,7 +77,6 @@ class FosgloveServerRos {
   ros::NodeHandle _nh;
   std::shared_ptr<foxglove::websocket::Server> _server;
   ros::ServiceClient _srv_get_topics;
-  std::mutex _mutex;
   std::map<foxglove::websocket::ChannelId, Subscription> _subscriptions;
 };
 
