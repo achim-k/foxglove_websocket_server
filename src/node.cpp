@@ -15,33 +15,33 @@ constexpr char CHANNEL_ENCODING[] = "cdr";
 class FosgloveServerRos {
  public:
   FosgloveServerRos(std::shared_ptr<rclcpp::Node> node, int port)
-      : _node(node),
-        _server(std::make_shared<foxglove::websocket::Server>(port, "foxglove_websocket_server")) {
-    _server->setSubscribeHandler([&](foxglove::websocket::ChannelId channel_id) {
+      : node_(node),
+        server_(std::make_shared<foxglove::websocket::Server>(port, "foxglove_websocket_server")) {
+    server_->setSubscribeHandler([&](foxglove::websocket::ChannelId channel_id) {
       try {
-        _subscriptions.at(channel_id).addClient();
+        subscriptions_.at(channel_id).addClient();
       } catch (const std::out_of_range&) {
-        RCLCPP_ERROR_STREAM(_node->get_logger(), "Unknown channel: " << channel_id);
+        RCLCPP_ERROR_STREAM(node_->get_logger(), "Unknown channel: " << channel_id);
       }
     });
 
-    _server->setUnsubscribeHandler([&](foxglove::websocket::ChannelId channel_id) {
+    server_->setUnsubscribeHandler([&](foxglove::websocket::ChannelId channel_id) {
       try {
-        _subscriptions.at(channel_id).removeClient();
+        subscriptions_.at(channel_id).removeClient();
       } catch (const std::out_of_range&) {
-        RCLCPP_ERROR_STREAM(_node->get_logger(), "Unknown channel: " << channel_id);
+        RCLCPP_ERROR_STREAM(node_->get_logger(), "Unknown channel: " << channel_id);
       }
     });
   }
 
-  void run() { _server->run(); }
-  void stop() { _server->stop(); }
+  void run() { server_->run(); }
+  void stop() { server_->stop(); }
   ~FosgloveServerRos() { this->stop(); }
 
   void discoverTopics(
       std::shared_future<rosapi_msgs::srv::TopicsAndRawTypes::Response::SharedPtr> result) {
     if (!result.valid()) {
-      RCLCPP_ERROR_STREAM(_node->get_logger(), "Failed to discover topics.");
+      RCLCPP_ERROR_STREAM(node_->get_logger(), "Failed to discover topics.");
       return;
     }
 
@@ -51,30 +51,30 @@ class FosgloveServerRos {
       const std::string& type = response->types[i];
       const std::string& definition_text = response->typedefs_full_text[i];
 
-      if (std::find_if(_subscriptions.begin(), _subscriptions.end(),
+      if (std::find_if(subscriptions_.begin(), subscriptions_.end(),
                        [&topic](const auto& t) -> bool { return t.second.getTopic() == topic; }) ==
-          _subscriptions.end()) {
+          subscriptions_.end()) {
         // Not found, add it.
-        Subscription subscription(_node, topic, type);
+        Subscription subscription(node_, topic, type);
 
-        const auto channel_id = _server->addChannel({
+        const auto channel_id = server_->addChannel({
             topic,
             CHANNEL_ENCODING,
             type,
             definition_text,
         });
         subscription.setMessageCallback(std::bind(&foxglove::websocket::Server::sendMessage,
-                                                  _server.get(), channel_id, std::placeholders::_1,
+                                                  server_.get(), channel_id, std::placeholders::_1,
                                                   std::placeholders::_2));
-        _subscriptions.insert({channel_id, std::move(subscription)});
+        subscriptions_.insert({channel_id, std::move(subscription)});
       }
     }
   }
 
  private:
-  std::shared_ptr<rclcpp::Node> _node;
-  std::shared_ptr<foxglove::websocket::Server> _server;
-  std::map<foxglove::websocket::ChannelId, Subscription> _subscriptions;
+  std::shared_ptr<rclcpp::Node> node_;
+  std::shared_ptr<foxglove::websocket::Server> server_;
+  std::map<foxglove::websocket::ChannelId, Subscription> subscriptions_;
 };
 
 int main(int argc, char** argv) {
