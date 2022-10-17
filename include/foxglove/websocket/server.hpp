@@ -178,8 +178,10 @@ inline void Server::handleConnectionOpened(ConnHandle hdl) {
     websocketpp::log::alevel::app,
     "Client " + con->get_remote_endpoint() + " connected via " + con->get_resource());
   _clients.emplace(hdl, ClientInfo{
-                          .name = con->get_remote_endpoint(),
-                          .handle = hdl,
+                          con->get_remote_endpoint(),
+                          hdl,
+                          {},
+                          {}
                         });
 
   con->send(json({
