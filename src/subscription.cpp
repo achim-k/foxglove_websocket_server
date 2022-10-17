@@ -1,9 +1,6 @@
 #include "foxglove_websocket_server/subscription.h"
 
-#include <ros/message_event.h>
-
 #include <cassert>
-#include <ros_type_introspection/utils/shape_shifter.hpp>
 
 namespace foxglove_websocket_server {
 
@@ -31,25 +28,42 @@ void Subscription::setMessageCallback(
 void Subscription::subscribe() {
   std::lock_guard<std::recursive_mutex> guard(*mutex_);
   if (subscriber_) {
-    ROS_WARN_STREAM("Already subscribed to topic " << topic_);
+    RCLCPP_WARN(node_->get_logger(), "Already subscribed to topic '%s'", topic_.c_str());
     return;
   }
 
-  const uint32_t queue_length = 10;
-  subscriber_ = std::make_unique<ros::Subscriber>(nh_.subscribe<RosIntrospection::ShapeShifter>(
-      topic_, queue_length,
-      [&](const ros::MessageEvent<RosIntrospection::ShapeShifter const>& msgEvent) -> void {
-        const auto& msg = msgEvent.getConstMessage();
-        msg_callback_(
-            msgEvent.getReceiptTime().toNSec(),
-            std::string_view(reinterpret_cast<const char*>(msg->raw_data()), msg->size()));
-      }));
-  ROS_INFO_STREAM("Subscribed to topic " << topic_);
+  rclcpp::SubscriptionEventCallbacks event_callbacks;
+  event_callbacks.incompatible_qos_callback = [&](const rclcpp::QOSRequestedIncompatibleQoSInfo&) {
+    RCLCPP_ERROR(node_->get_logger(), "Incompatible subscriber QOS settings for topic '%s'",
+                 topic_.c_str());
+  };
+
+  rclcpp::SubscriptionOptions subscription_options;
+  subscription_options.event_callbacks = event_callbacks;
+  subscription_options.callback_group = callback_group_;
+
+  const size_t queue_length = 10;
+  try {
+    subscriber_ = node_->create_generic_subscription(
+        topic_, type_, queue_length,
+        [&](std::shared_ptr<rclcpp::SerializedMessage> msg) {
+          msg_callback_(node_->now().nanoseconds(),
+                        std::string_view(
+                            reinterpret_cast<const char*>(msg->get_rcl_serialized_message().buffer),
+                            msg->get_rcl_serialized_message().buffer_length));
+        },
+        subscription_options);
+    RCLCPP_INFO(node_->get_logger(), "Subscribed to topic '%s'", topic_.c_str());
+  } catch (const std::exception& ex) {
+    RCLCPP_ERROR(node_->get_logger(), "Error when subscribing to topic '%s': %s", topic_.c_str(),
+                 ex.what());
+    subscriber_.reset();
+  }
 }
 
 void Subscription::unsubscribe() {
   subscriber_.reset();
-  ROS_INFO_STREAM("Unsubscribed from topic " << topic_);
+  RCLCPP_INFO(node_->get_logger(), "Unsubscribed from topic '%s'", topic_.c_str());
 }
 
 }  // namespace foxglove_websocket_server

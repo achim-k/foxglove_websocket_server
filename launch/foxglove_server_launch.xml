@@ -1,0 +1,17 @@
+<launch>
+  <arg name="port"                        default="8765" />
+  <arg name="num_threads"                 default="0" />
+  <arg name="topic_discovery_period"      default="5.0" />
+
+  <arg name="topics_glob"                 default="" />
+
+  <node name="foxglove_server" pkg="foxglove_websocket_server" exec="server">
+    <param name="port"                    value="$(var port)"/>
+    <param name="num_threads"             value="$(var num_threads)"/>
+    <param name="topic_discovery_period"  value="$(var topic_discovery_period)"/>
+  </node>
+
+  <node name="rosapi" pkg="rosapi" exec="rosapi_node">
+    <param name="topics_glob" value="$(var topics_glob)"/>
+  </node>
+</launch>

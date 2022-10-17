@@ -1,60 +1,56 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.5)
 project(foxglove_websocket_server)
 
-add_compile_options(-std=c++17)
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
-find_package(catkin REQUIRED COMPONENTS
-  ros_type_introspection
-  rosapi
-  roscpp
-  std_srvs
-)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rosapi_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 
 #find_package(nlohmann_json REQUIRED)
 find_package(websocketpp REQUIRED)
-
-catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES foxlove_server_ros
-  CATKIN_DEPENDS
-    ros_type_introspection
-    rosapi
-    roscpp
-    std_srvs
-  # DEPENDS websocketpp
-)
+find_package(Boost REQUIRED)
 
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS}
+  ${Boost_INCLUDE_DIRS}
   ${WEBSOCKETPP_INCLUDE_DIRS}
 )
 
 add_library(foxlove_server_ros src/subscription.cpp)
-target_link_libraries(foxlove_server_ros
-  ${catkin_LIBRARIES}
+ament_target_dependencies(foxlove_server_ros
+  rclcpp
 )
 
 add_executable(server src/node.cpp)
+ament_target_dependencies(server
+  rclcpp
+  rosapi_msgs
+  std_srvs
+)
 target_link_libraries(server
   foxlove_server_ros
-  ${catkin_LIBRARIES}
 )
 
 install(TARGETS foxlove_server_ros
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
-)
+  DESTINATION lib/${PROJECT_NAME})
 
 install(TARGETS server
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  DESTINATION lib/${PROJECT_NAME})
+
+install(DIRECTORY include/
+  DESTINATION include)
+ament_export_include_directories(include)
+
+install(FILES
+  launch/foxglove_server_launch.xml
+  DESTINATION share/${PROJECT_NAME}/launch
 )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-)
-
-install(DIRECTORY launch/
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
-)
+ament_package()
