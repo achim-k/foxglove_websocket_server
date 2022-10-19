@@ -12,7 +12,6 @@
 #include <shared_mutex>
 #include <string_view>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace foxglove::websocket {
@@ -104,7 +103,7 @@ private:
     std::string name;
     ConnHandle handle;
     std::unordered_map<SubscriptionId, ChannelId> subscriptions;
-    std::unordered_map<ChannelId, std::unordered_set<SubscriptionId>> subscriptionsByChannel;
+    std::unordered_map<ChannelId, SubscriptionId> subscriptionsByChannel;
 
     ClientInfo(const ClientInfo&) = delete;
     ClientInfo& operator=(const ClientInfo&) = delete;
@@ -309,7 +308,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
         }
         bool firstSubscription = !anySubscribed(channelId);
         clientInfo.subscriptions.emplace(subId, channelId);
-        clientInfo.subscriptionsByChannel[channelId].insert(subId);
+        clientInfo.subscriptionsByChannel.emplace(channelId, subId);
         if (firstSubscription && _subscribeHandler) {
           _subscribeHandler(channelId);
         }
@@ -331,10 +330,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
         clientInfo.subscriptions.erase(sub);
         if (const auto& subs = clientInfo.subscriptionsByChannel.find(chanId);
             subs != clientInfo.subscriptionsByChannel.end()) {
-          subs->second.erase(subId);
-          if (subs->second.empty()) {
-            clientInfo.subscriptionsByChannel.erase(subs);
-          }
+          clientInfo.subscriptionsByChannel.erase(subs);
         }
         if (!anySubscribed(chanId) && _unsubscribeHandler) {
           _unsubscribeHandler(chanId);
@@ -379,9 +375,6 @@ inline void Server::removeChannel(ChannelId chanId) {
   for (auto& [hdl, clientInfo] : _clients) {
     if (const auto it = clientInfo.subscriptionsByChannel.find(chanId);
         it != clientInfo.subscriptionsByChannel.end()) {
-      for (const auto& subId : it->second) {
-        clientInfo.subscriptions.erase(subId);
-      }
       clientInfo.subscriptionsByChannel.erase(it);
     }
     sendJson(hdl, {{"op", "unadvertise"}, {"channelIds", {chanId}}});
@@ -396,26 +389,25 @@ inline void Server::sendMessage(ChannelId chanId, uint64_t timestamp, std::strin
     if (subs == client.subscriptionsByChannel.end()) {
       continue;
     }
-    for (const auto subId : subs->second) {
-      if (message.empty()) {
-        message.resize(1 + 4 + 8 + data.size());
-        message[0] = uint8_t(BinaryOpcode::MESSAGE_DATA);
-        message[5] = (timestamp >> 0) & 0xff;
-        message[6] = (timestamp >> 8) & 0xff;
-        message[7] = (timestamp >> 16) & 0xff;
-        message[8] = (timestamp >> 24) & 0xff;
-        message[9] = (timestamp >> 32) & 0xff;
-        message[10] = (timestamp >> 40) & 0xff;
-        message[11] = (timestamp >> 48) & 0xff;
-        message[12] = (timestamp >> 56) & 0xff;
-        std::memcpy(message.data() + 1 + 4 + 8, data.data(), data.size());
-      }
-      message[1] = (subId >> 0) & 0xff;
-      message[2] = (subId >> 8) & 0xff;
-      message[3] = (subId >> 16) & 0xff;
-      message[4] = (subId >> 24) & 0xff;
-      sendBinary(hdl, message);
+    const auto subId = subs->second;
+    if (message.empty()) {
+      message.resize(1 + 4 + 8 + data.size());
+      message[0] = uint8_t(BinaryOpcode::MESSAGE_DATA);
+      message[5] = (timestamp >> 0) & 0xff;
+      message[6] = (timestamp >> 8) & 0xff;
+      message[7] = (timestamp >> 16) & 0xff;
+      message[8] = (timestamp >> 24) & 0xff;
+      message[9] = (timestamp >> 32) & 0xff;
+      message[10] = (timestamp >> 40) & 0xff;
+      message[11] = (timestamp >> 48) & 0xff;
+      message[12] = (timestamp >> 56) & 0xff;
+      std::memcpy(message.data() + 1 + 4 + 8, data.data(), data.size());
     }
+    message[1] = (subId >> 0) & 0xff;
+    message[2] = (subId >> 8) & 0xff;
+    message[3] = (subId >> 16) & 0xff;
+    message[4] = (subId >> 24) & 0xff;
+    sendBinary(hdl, message);
   }
 }
 
