@@ -102,7 +102,6 @@ private:
   struct ClientInfo {
     std::string name;
     ConnHandle handle;
-    std::unordered_map<SubscriptionId, ChannelId> subscriptions;
     std::unordered_map<ChannelId, SubscriptionId> subscriptionsByChannel;
 
     ClientInfo(const ClientInfo&) = delete;
@@ -179,7 +178,6 @@ inline void Server::handleConnectionOpened(ConnHandle hdl) {
   _clients.emplace(hdl, ClientInfo{
                           con->get_remote_endpoint(),
                           hdl,
-                          {},
                           {}
                         });
 
@@ -279,6 +277,14 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
     std::unique_lock<std::shared_mutex> lock(_clients_channel_mutex);
     auto& clientInfo = _clients.at(hdl);
 
+    const auto findSubscriptionBySubId = [&clientInfo](SubscriptionId subId) {
+      return std::find_if(clientInfo.subscriptionsByChannel.begin(),
+                          clientInfo.subscriptionsByChannel.end(),
+                          [&subId](const auto& mo) {
+          return mo.second == subId;
+      });
+    };
+
     const auto& payloadStr = msg->get_payload();
     const json payload = json::parse(payloadStr);
     const std::string& op = payload.at("op").get<std::string>();
@@ -287,7 +293,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
       for (const auto& sub : payload.at("subscriptions")) {
         SubscriptionId subId = sub.at("id");
         ChannelId channelId = sub.at("channelId");
-        if (clientInfo.subscriptions.find(subId) != clientInfo.subscriptions.end()) {
+        if (findSubscriptionBySubId(subId) != clientInfo.subscriptionsByChannel.end()) {
           sendJson(hdl, json{
                           {"op", "status"},
                           {"level", static_cast<uint8_t>(StatusLevel::ERROR)},
@@ -307,7 +313,6 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
           continue;
         }
         bool firstSubscription = !anySubscribed(channelId);
-        clientInfo.subscriptions.emplace(subId, channelId);
         clientInfo.subscriptionsByChannel.emplace(channelId, subId);
         if (firstSubscription && _subscribeHandler) {
           _subscribeHandler(channelId);
@@ -316,8 +321,8 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
     } else if (op == "unsubscribe") {
       for (const auto& subIdJson : payload.at("subscriptionIds")) {
         SubscriptionId subId = subIdJson;
-        const auto& sub = clientInfo.subscriptions.find(subId);
-        if (sub == clientInfo.subscriptions.end()) {
+        const auto& sub = findSubscriptionBySubId(subId);
+        if (sub == clientInfo.subscriptionsByChannel.end()) {
           sendJson(hdl, json{
                           {"op", "status"},
                           {"level", static_cast<uint8_t>(StatusLevel::WARNING)},
@@ -327,11 +332,7 @@ inline void Server::handleMessage(ConnHandle hdl, MessagePtr msg) {
           continue;
         }
         ChannelId chanId = sub->second;
-        clientInfo.subscriptions.erase(sub);
-        if (const auto& subs = clientInfo.subscriptionsByChannel.find(chanId);
-            subs != clientInfo.subscriptionsByChannel.end()) {
-          clientInfo.subscriptionsByChannel.erase(subs);
-        }
+        clientInfo.subscriptionsByChannel.erase(sub);
         if (!anySubscribed(chanId) && _unsubscribeHandler) {
           _unsubscribeHandler(chanId);
         }
